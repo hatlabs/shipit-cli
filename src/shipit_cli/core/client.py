@@ -63,6 +63,7 @@ class ShipitClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "shipit-cli/1.0",
             "X-SHIPIT-KEY": self.api_key,
         }
 
