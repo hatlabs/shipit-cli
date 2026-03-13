@@ -85,6 +85,7 @@ def _run_repl(ctx: CliContext) -> None:
 
     commands = {
         "methods list": "List all shipping methods",
+        "methods quote -d JSON": "Get shipping methods with prices",
         "addresses list": "List saved addresses",
         "addresses get <id>": "Get single address",
         "addresses create -d JSON": "Create address",
@@ -176,6 +177,16 @@ def methods_list(ctx):
             "Yes" if d.get("worldwideDelivery") else "",
         ],
     )
+
+
+@methods_cmd.command("quote")
+@click.option("--data", "-d", required=True, help="JSON shipment data (sender, receiver, parcels).")
+@pass_ctx
+def methods_quote(ctx, data):
+    """Get shipping methods with prices for a shipment."""
+    data = json.loads(data)
+    result = methods.quote_methods(ctx.client, data)
+    _output(ctx, result)
 
 
 # ---------------------------------------------------------------------------
