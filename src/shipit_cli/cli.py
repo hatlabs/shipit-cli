@@ -342,30 +342,31 @@ def shipment_create(ctx, data, output_dir):
     data = json.loads(data)
     result = shipments.create_shipment(ctx.client, data)
 
-    if output_dir and isinstance(result, dict):
-        _download_freight_docs(result, output_dir)
-
+    # The shipment is billed by now; print the response before any download can fail.
     _output(ctx, result)
 
+    if output_dir and isinstance(result, dict):
+        _download_freight_docs(ctx.client, result, output_dir)
 
-def _download_freight_docs(result: dict, output_dir: str) -> None:
-    """Download freight document PDFs from URLs in the response."""
+
+def _download_freight_docs(client, result: dict, output_dir: str) -> None:
+    """Download the label and proforma PDFs named in the response; warn on failure."""
     import os
-    import urllib.request
 
     os.makedirs(output_dir, exist_ok=True)
     tracking = result.get("trackingNumber", "unknown")
 
-    for i, url in enumerate(result.get("freightDoc", [])):
-        filename = f"{tracking}_label_{i}.pdf"
-        filepath = os.path.join(output_dir, filename)
-        urllib.request.urlretrieve(url, filepath)
-        click.echo(f"Saved: {filepath}", err=True)
+    docs = [(url, f"{tracking}_label_{i}.pdf") for i, url in enumerate(result.get("freightDoc", []))]
+    if result.get("proforma"):
+        docs.append((result["proforma"], f"{tracking}_proforma.pdf"))
 
-    proforma_url = result.get("proforma")
-    if proforma_url:
-        filepath = os.path.join(output_dir, f"{tracking}_proforma.pdf")
-        urllib.request.urlretrieve(proforma_url, filepath)
+    for url, filename in docs:
+        filepath = os.path.join(output_dir, filename)
+        try:
+            client.download(url, filepath)
+        except (ShipitAPIError, OSError) as e:
+            click.echo(f"Warning: could not save {url} to {filepath}: {e}", err=True)
+            continue
         click.echo(f"Saved: {filepath}", err=True)
 
 
