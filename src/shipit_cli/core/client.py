@@ -7,6 +7,9 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+# Shipit sits behind Cloudflare, which rejects the default Python-urllib User-Agent.
+USER_AGENT = "shipit-cli/1.0"
+
 
 class ShipitAPIError(Exception):
     """Raised when the Shipit API returns an error."""
@@ -63,7 +66,7 @@ class ShipitClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "shipit-cli/1.0",
+            "User-Agent": USER_AGENT,
             "X-SHIPIT-KEY": self.api_key,
         }
 
@@ -76,6 +79,19 @@ class ShipitClient:
             raise ShipitAPIError(detail, status_code=e.code) from e
         except urllib.error.URLError as e:
             raise ShipitAPIError(f"Connection error: {e.reason}") from e
+
+    def download(self, url: str, path: str) -> None:
+        """Save a Shipit document (label, proforma) from url to path."""
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req) as resp:
+                content = resp.read()
+        except urllib.error.HTTPError as e:
+            raise ShipitAPIError(f"HTTP {e.code} downloading {url}", status_code=e.code) from e
+        except urllib.error.URLError as e:
+            raise ShipitAPIError(f"Connection error downloading {url}: {e.reason}") from e
+        with open(path, "wb") as f:
+            f.write(content)
 
 
 def make_client(
